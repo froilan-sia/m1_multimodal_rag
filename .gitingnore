@@ -1,0 +1,44 @@
+cat > .gitignore << 'EOF'
+# Python virtual environment
+venv/
+env/
+.env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database and cache
+chroma_db/
+images_cache/
+*.db
+*.sqlite
+*.sqlite3
+
+# Data files (keep the folder but exclude contents)
+data/*.pdf
+data/*.pdf.*
+!data/.gitkeep
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+EOF
