@@ -3,6 +3,7 @@
 Multimodal RAG for Apple Silicon (M1/M2/M3)
 Usage:
     python main.py ingest --pdf data/report.pdf
+    python main.py ingest --pdf data/new_report.pdf --clear
     python main.py query --question "What was the Q3 revenue?"
 """
 
@@ -15,13 +16,13 @@ from io import BytesIO
 from pathlib import Path
 
 import chromadb
-import fitz  # PyMuPDF
+import pymupdf as fitz
 import ollama
 from PIL import Image
 
 # ---------- CONFIG ----------
 TEXT_MODEL = "llama3.2:3b"          # For final RAG answers (8GB friendly)
-VISION_MODEL = "qwen2.5-vl:3b"       # For charts (8GB friendly)
+VISION_MODEL = "qwen2.5vl:3b"       # For charts (8GB friendly)
 CHROMA_PATH = "./chroma_db"
 IMAGE_CACHE = "./images_cache"
 
@@ -48,7 +49,7 @@ def encode_image_for_ollama(image_bytes: bytes, max_size=800) -> str:
     buffered = BytesIO()
     img.save(buffered, format="JPEG", quality=85)
     img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-    return f"data:image/jpeg;base64,{img_base64}"
+    return img_base64
 
 
 # ---------- PHASE 1: INGESTION ----------
@@ -198,14 +199,28 @@ def query_rag(question: str):
     print("\n📚 Sources:", ", ".join(parent_ids))
 
 
+# ---------- DATABASE CLEAR FUNCTION ----------
+def clear_database():
+    """Delete all collections to reset the database."""
+    try:
+        chroma_client.delete_collection("child_chunks")
+        chroma_client.delete_collection("parent_chunks")
+        print("✅ Database cleared successfully!")
+    except ValueError:
+        print("ℹ️ Database was already empty. Nothing to clear.")
+    except Exception as e:
+        print(f"⚠️ Could not clear database: {e}")
+
+
 # ---------- CLI ENTRY POINT ----------
 def main():
     parser = argparse.ArgumentParser(description="M1 Multimodal RAG Pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
     
-    # Ingest command
+    # Ingest command with --clear flag
     ingest_parser = subparsers.add_parser("ingest", help="Ingest a PDF")
     ingest_parser.add_argument("--pdf", required=True, help="Path to PDF file")
+    ingest_parser.add_argument("--clear", action="store_true", help="Clear the database before ingesting")
     
     # Query command
     query_parser = subparsers.add_parser("query", help="Ask a question")
@@ -217,6 +232,15 @@ def main():
         if not os.path.exists(args.pdf):
             print(f"❌ File not found: {args.pdf}")
             sys.exit(1)
+        
+        # Clear the database if the flag is set
+        if args.clear:
+            clear_database()
+            # Re-initialize collections after clearing
+            global child_collection, parent_collection
+            child_collection = chroma_client.get_or_create_collection(name="child_chunks")
+            parent_collection = chroma_client.get_or_create_collection(name="parent_chunks")
+        
         ingest_pdf(args.pdf)
     
     elif args.command == "query":
