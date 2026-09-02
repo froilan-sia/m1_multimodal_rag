@@ -2,3 +2,4 @@ pymupdf
 chromadb
 ollama
 pillow
+gradio
